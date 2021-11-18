@@ -1,0 +1,71 @@
+{
+  "name": "typed-serverless",
+  "version": "0.1.0",
+  "description": "Helps you write a consistent Serverless Framework configuration in TypeScript",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.js",
+  "scripts": {
+    "clean": "rimraf ./lib ./types",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "build": "rimraf ./lib && swc ./src -d ./lib",
+    "build:watch": "rimraf ./lib && swc --watch ./src -d ./lib",
+    "build:full": "npm run clean && tsc --declaration",
+    "prepare": "husky install",
+    "prepublishOnly": "npm run test && npm run clean && npm run build:full"
+  },
+  "files": [
+    "src",
+    "lib",
+    "types",
+    "package.json",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrielmoreira/typed-serverless.git"
+  },
+  "keywords": [
+    "serverless",
+    "typescript",
+    "configuration",
+    "builder",
+    "serverless-builder",
+    "helper",
+    "serverless-helper",
+    "typed-serverless"
+  ],
+  "author": "Gabriel Moreira",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gabrielmoreira/typed-serverless/issues"
+  },
+  "homepage": "https://github.com/gabrielmoreira/typed-serverless#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^15.0.0",
+    "@commitlint/config-conventional": "^15.0.0",
+    "@serverless/typescript": "^2.66.2",
+    "@swc/cli": "^0.1.51",
+    "@swc/core": "^1.2.110",
+    "@swc/jest": "^0.2.5",
+    "@types/jest": "^27.0.2",
+    "@typescript-eslint/eslint-plugin": "^5.4.0",
+    "@typescript-eslint/parser": "^5.4.0",
+    "aws-sdk": "^2.1032.0",
+    "chokidar": "^3.5.2",
+    "eslint": "^8.2.0",
+    "eslint-config-prettier": "^8.3.0",
+    "husky": "^7.0.4",
+    "jest": "^27.3.1",
+    "prettier": "^2.4.1",
+    "rimraf": "^3.0.2",
+    "serverless": "^2.66.2",
+    "serverless-esbuild": "^1.22.0",
+    "typescript": "^4.5.2"
+  },
+  "dependencies": {
+    "cloudform-types": "^7.3.0",
+    "debug": "^4.3.2"
+  }
+}

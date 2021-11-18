@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "preserveConstEnums": true,
+    "strictNullChecks": true,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "isolatedModules": false,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "module": "commonjs",
+    "target": "ES2020",
+    "baseUrl": ".",
+    "rootDir": "./src",
+    "outDir": "./lib",
+    "declaration": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "typeRoots": ["./node_modules/@types"]
+  },
+  "include": [
+    "./src"
+  ]
+}
