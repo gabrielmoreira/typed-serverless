@@ -1,4 +1,5 @@
 import { createTypedServerless, SQS, S3 } from '../src';
+import { CfRef } from '../src/aws/placeholders';
 
 const defaultParams = {
   resourceParamsFactory: (id: string): { name: string } => {
@@ -11,29 +12,48 @@ describe('createTypedServerless', () => {
     // Given
     const s = createTypedServerless(defaultParams);
     const myConfig = {
-      myResources: s.resource('id-1', ({ name }) => ({
-        myCustomObject: { name },
-      })),
+      myResources: s.resources({
+        'id-1': ({ name }) =>
+          new SQS.Queue({
+            QueueName: name,
+          }).dependsOn(s.refId('id-4')),
+      }),
+      multipleResources: s.resources({
+        'id-3': ({ name }) => ({ properties: { name } }),
+        'id-4': ({ name }) => ({ properties: { name } }),
+      }),
       any: {
         deep: [
           {
-            location: s.resource('id-2', ({ name }) => ({
-              somethingElse: 123,
-              name,
-            })),
+            location: s.resources({
+              'id-2': ({ name }) => ({
+                somethingElse: 123,
+                name,
+              }),
+            }),
           },
         ],
       },
     };
     // When
-    const finalConfig = s.build(myConfig).config;
+    const finalConfig = clone(s.build(myConfig));
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
         'id-1': {
-          myCustomObject: {
-            name: 'my-custom-name-id-1',
+          Type: 'AWS::SQS::Queue',
+          Properties: {
+            QueueName: 'my-custom-name-id-1',
           },
+          DependsOn: 'id-4',
+        },
+      },
+      multipleResources: {
+        'id-3': {
+          properties: { name: 'my-custom-name-id-3' },
+        },
+        'id-4': {
+          properties: { name: 'my-custom-name-id-4' },
         },
       },
       any: {
@@ -55,23 +75,40 @@ describe('createTypedServerless', () => {
     const s = createTypedServerless(defaultParams);
     const myConfig = {
       myResources: {
-        ...s.resource('id-1', ({ name }) => ({
-          myCustomObject: { name },
-        })),
-        ...s.resource('id-2', ({ name }) => ({
-          myCustomObject: { name },
-        })),
+        ...s.resources({
+          'id-1': ({ name }) => ({
+            myCustomObject: { name },
+          }),
+        }),
+        ...s.resources({
+          'id-2': ({ name }) => ({
+            myCustomObject: { name },
+          }),
+        }),
       },
-      any: {
+      functions: s.functions({
+        'id-3': ({ name }) => ({
+          name,
+          handler: 'index.handler',
+        }),
+      }),
+      resourceRefs: {
         logicalRef: s.ref('id-1'),
         arnRef: s.getArn('id-1'),
         nameRef: s.getName('id-1'),
         attRef: s.getAtt('id-1', 'url'),
         nestedRef: s.getAtt('id-1', s.getAtt('id-2', 'url')),
       },
+      functionRefs: {
+        logicalRef: s.ref('id-3'),
+        arnRef: s.getArn('id-3'),
+        nameRef: s.getName('id-3'),
+        attRef: s.getAtt('id-3', 'Arn'),
+        nestedRef: s.getAtt('id-3', s.getAtt('id-3', 'Arn')),
+      },
     };
     // When
-    const finalConfig = s.build(myConfig).config;
+    const finalConfig = s.build(myConfig);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -86,8 +123,7 @@ describe('createTypedServerless', () => {
           },
         },
       },
-
-      any: {
+      resourceRefs: {
         logicalRef: {
           Ref: 'id-1',
         },
@@ -107,15 +143,43 @@ describe('createTypedServerless', () => {
           ],
         },
       },
+      functionRefs: {
+        arnRef: {
+          'Fn::GetAtt': ['IdDash3LambdaFunction', 'Arn'],
+        },
+        attRef: {
+          'Fn::GetAtt': ['IdDash3LambdaFunction', 'Arn'],
+        },
+        logicalRef: {
+          Ref: 'IdDash3LambdaFunction',
+        },
+        nameRef: 'my-custom-name-id-3',
+        nestedRef: {
+          'Fn::GetAtt': [
+            'IdDash3LambdaFunction',
+            {
+              'Fn::GetAtt': ['IdDash3LambdaFunction', 'Arn'],
+            },
+          ],
+        },
+      },
+      functions: {
+        'id-3': {
+          handler: 'index.handler',
+          name: 'my-custom-name-id-3',
+        },
+      },
     });
   });
   it('should fail if you reference an invalid resource', () => {
     // Given
     const s = createTypedServerless(defaultParams);
     const myConfig = {
-      myResources: s.resource('id-1', ({ name }) => ({
-        myCustomObject: { name },
-      })),
+      myResources: s.resources({
+        'id-1': ({ name }) => ({
+          myCustomObject: { name },
+        }),
+      }),
       any: {
         logicalRef: s.ref('id-2'),
         arnRef: s.getArn('id-2'),
@@ -125,7 +189,7 @@ describe('createTypedServerless', () => {
     };
     // When
     expect(() => s.build(myConfig)).toThrow('Validation errors!');
-    const result = s.build(myConfig, { noFailOnError: true });
+    const result = s.process(myConfig);
     // Then
     expect(result.errors).toStrictEqual([
       "Referenced resource 'id-2' not found! Check your configuration at 'any.logicalRef'",
@@ -142,7 +206,7 @@ describe('createTypedServerless', () => {
         },
       },
       any: {
-        logicalRef: s.ref('id-2'),
+        logicalRef: new CfRef('id-2'),
         arnRef: s.getArn('id-2'),
         nameRef: s.getName('id-2'),
         attRef: s.getAtt('id-2', 'url'),
@@ -153,9 +217,11 @@ describe('createTypedServerless', () => {
     // Given
     const s = createTypedServerless(defaultParams);
     const myConfig = {
-      myResources: s.resource('id-1', ({ name }) => ({
-        myCustomObject: { name },
-      })),
+      myResources: s.resources({
+        'id-1': ({ name }) => ({
+          myCustomObject: { name },
+        }),
+      }),
       myObject: s.stringify({
         any: {
           logicalRef: s.ref('id-1'),
@@ -179,7 +245,7 @@ describe('createTypedServerless', () => {
       }),
     };
     // When
-    const finalConfig = s.build(myConfig).config;
+    const finalConfig = s.build(myConfig);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -193,27 +259,27 @@ describe('createTypedServerless', () => {
         'Fn::Sub': [
           JSON.stringify({
             any: {
-              logicalRef: '${extractParam_0}',
-              arnRef: '${extractParam_1}',
+              logicalRef: '${extracted_param_0}',
+              arnRef: '${extracted_param_1}',
               nameRef: 'my-custom-name-id-1',
-              attRef: '${extractParam_2}',
-              customSub: '${extractParam_3}',
-              customSub2: '${extractParam_4}',
-              transform: '${extractParam_5}',
-              sub: '${extractParam_6}',
+              attRef: '${extracted_param_2}',
+              customSub: '${extracted_param_3}',
+              customSub2: '${extracted_param_4}',
+              transform: '${extracted_param_5}',
+              sub: '${extracted_param_6}',
             },
           }),
           {
-            extractParam_0: {
+            extracted_param_0: {
               Ref: 'id-1',
             },
-            extractParam_1: {
+            extracted_param_1: {
               'Fn::GetAtt': ['id-1', 'Arn'],
             },
-            extractParam_2: {
+            extracted_param_2: {
               'Fn::GetAtt': ['id-1', 'url'],
             },
-            extractParam_3: {
+            extracted_param_3: {
               'Fn::Sub': [
                 'my name is ${name}',
                 {
@@ -221,10 +287,10 @@ describe('createTypedServerless', () => {
                 },
               ],
             },
-            extractParam_4: {
+            extracted_param_4: {
               'Fn::Sub': 'aws account id is ${AWS::AccountId}',
             },
-            extractParam_5: {
+            extracted_param_5: {
               'Fn::Transform': {
                 Name: 'AWS::Include',
                 Parameters: {
@@ -234,7 +300,7 @@ describe('createTypedServerless', () => {
                 },
               },
             },
-            extractParam_6: {
+            extracted_param_6: {
               'Fn::Sub': [
                 'www.${Domain}',
                 {
@@ -259,12 +325,16 @@ describe('createTypedServerless', () => {
     });
     const myConfig = {
       myResources: {
-        ...s.resource('id-1', ({ name }) => ({
-          myCustomObject: { name },
-        })),
-        ...s.resource('id-2', ({ name }) => ({
-          myCustomObject: { name },
-        })),
+        ...s.resources({
+          'id-1': ({ name }) => ({
+            myCustomObject: { name },
+          }),
+        }),
+        ...s.resources({
+          'id-2': ({ name }) => ({
+            myCustomObject: { name },
+          }),
+        }),
       },
       myObject: {
         any: {
@@ -276,7 +346,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = s.build(myConfig, { noFailOnError: true }).config;
+    const finalConfig = s.build(myConfig);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -327,12 +397,16 @@ describe('createTypedServerless', () => {
     });
     const myConfig = {
       myResources: {
-        ...s.resource('secret-id-1', ({ name, tags }) => ({
-          myCustomObject: { name, tags },
-        })),
-        ...s.resource('queue-id-2', ({ name, tags }) => ({
-          myCustomObject: { name, tags },
-        })),
+        ...s.resources({
+          'secret-id-1': ({ name, tags }) => ({
+            myCustomObject: { name, tags },
+          }),
+        }),
+        ...s.resources({
+          'queue-id-2': ({ name, tags }) => ({
+            myCustomObject: { name, tags },
+          }),
+        }),
       },
       myObject: {
         any: {
@@ -344,7 +418,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = s.build(myConfig, { noFailOnError: true }).config;
+    const finalConfig = s.build(myConfig);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -382,24 +456,22 @@ describe('createTypedServerless', () => {
     const s = createTypedServerless(defaultParams);
     const myConfig = {
       myResources: {
-        ...s.resource(
-          'my-queue',
-          ({ name }) =>
+        ...s.resources({
+          'my-queue': ({ name }) =>
             new SQS.Queue({
               QueueName: name,
-            })
-        ),
-        ...s.resource(
-          'my-bucket',
-          () =>
+            }),
+        }),
+        ...s.resources({
+          'my-bucket': () =>
             new S3.Bucket({
               BucketName: 'my-bucket-fixed-name',
-            })
-        ),
+            }),
+        }),
       },
     };
     // When
-    const finalConfig = JSON.parse(JSON.stringify(s.build(myConfig).config));
+    const finalConfig = JSON.parse(JSON.stringify(s.build(myConfig)));
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -418,4 +490,88 @@ describe('createTypedServerless', () => {
       },
     });
   });
+  it('should be able to build arn for a resource', () => {
+    // Given
+    const s = createTypedServerless(defaultParams);
+    const myConfig = {
+      myResources: {
+        ...s.resources({
+          'id-1': ({ name }) => ({
+            myCustomObject: { name },
+          }),
+        }),
+      },
+      functions: s.functions({
+        'id-2': ({ name }) => ({
+          name,
+          handler: 'index.handler',
+        }),
+      }),
+      any: {
+        buildAlarmArn: s.buildAlarmArn('id-1'),
+        buildBucketArn: s.buildBucketArn('id-1', '/some-path'),
+        buildEventBusArn: s.buildEventBusArn('id-1'),
+        buildFakeLambdaArn: s.buildLambdaArn('id-1'),
+        buildLambdaArn: s.buildLambdaArn('id-2'),
+        buildSnsArn: s.buildSnsArn('id-1'),
+        buildSqsArn: s.buildSqsArn('id-1'),
+        buildStepFunctionArn: s.buildStepFunctionArn('id-1'),
+      },
+    };
+    // When
+    const finalConfig = s.build(myConfig);
+    // Then
+    expect(finalConfig).toStrictEqual({
+      myResources: {
+        'id-1': {
+          myCustomObject: {
+            name: 'my-custom-name-id-1',
+          },
+        },
+      },
+      functions: {
+        'id-2': {
+          handler: 'index.handler',
+          name: 'my-custom-name-id-2',
+        },
+      },
+      any: {
+        buildAlarmArn: {
+          'Fn::Sub':
+            'arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:my-custom-name-id-1',
+        },
+        buildBucketArn: {
+          'Fn::Sub': 'arn:aws:s3:::my-custom-name-id-1/some-path',
+        },
+        buildEventBusArn: {
+          'Fn::Sub':
+            'arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/my-custom-name-id-1',
+        },
+        buildFakeLambdaArn: {
+          'Fn::Sub':
+            'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:my-custom-name-id-1',
+        },
+        buildLambdaArn: {
+          'Fn::Sub':
+            'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:my-custom-name-id-2',
+        },
+        buildSnsArn: {
+          'Fn::Sub':
+            'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:my-custom-name-id-1',
+        },
+        buildSqsArn: {
+          'Fn::Sub':
+            'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:my-custom-name-id-1',
+        },
+        buildStepFunctionArn: {
+          'Fn::Sub':
+            'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:my-custom-name-id-1',
+        },
+      },
+    });
+  });
 });
+
+function clone<T>(config: T): T {
+  return JSON.parse(JSON.stringify(config));
+}
