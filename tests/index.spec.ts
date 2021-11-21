@@ -1,4 +1,10 @@
-import { createTypedServerless, SQS, S3 } from '../src';
+import {
+  createTypedServerless,
+  SQS,
+  S3,
+  CfnResource,
+  CfnResourceProps,
+} from '../src';
 import { CfRef } from '../src/aws/placeholders';
 
 const defaultParams = {
@@ -14,22 +20,25 @@ describe('createTypedServerless', () => {
     const myConfig = {
       myResources: s.resources({
         'id-1': ({ name }) =>
-          new SQS.Queue({
+          SQS.Queue({
             QueueName: name,
-          }).dependsOn(s.refId('id-4')),
+          })
+            .dependsOn(s.refId('id-4'))
+            .dependsOn(s.refId('id-3')),
       }),
       multipleResources: s.resources({
-        'id-3': ({ name }) => ({ properties: { name } }),
-        'id-4': ({ name }) => ({ properties: { name } }),
+        'id-3': ({ name }) => fakeResource({ properties: { name } }),
+        'id-4': ({ name }) => fakeResource({ properties: { name } }),
       }),
       any: {
         deep: [
           {
             location: s.resources({
-              'id-2': ({ name }) => ({
-                somethingElse: 123,
-                name,
-              }),
+              'id-2': ({ name }) =>
+                fakeResource({
+                  somethingElse: 123,
+                  name,
+                }),
             }),
           },
         ],
@@ -45,7 +54,7 @@ describe('createTypedServerless', () => {
           Properties: {
             QueueName: 'my-custom-name-id-1',
           },
-          DependsOn: 'id-4',
+          DependsOn: ['id-4', 'id-3'],
         },
       },
       multipleResources: {
@@ -76,14 +85,16 @@ describe('createTypedServerless', () => {
     const myConfig = {
       myResources: {
         ...s.resources({
-          'id-1': ({ name }) => ({
-            myCustomObject: { name },
-          }),
+          'id-1': ({ name }) =>
+            fakeResource({
+              myCustomObject: { name },
+            }),
         }),
         ...s.resources({
-          'id-2': ({ name }) => ({
-            myCustomObject: { name },
-          }),
+          'id-2': ({ name }) =>
+            fakeResource({
+              myCustomObject: { name },
+            }),
         }),
       },
       functions: s.functions({
@@ -176,9 +187,10 @@ describe('createTypedServerless', () => {
     const s = createTypedServerless(defaultParams);
     const myConfig = {
       myResources: s.resources({
-        'id-1': ({ name }) => ({
-          myCustomObject: { name },
-        }),
+        'id-1': ({ name }) =>
+          fakeResource({
+            myCustomObject: { name },
+          }),
       }),
       any: {
         logicalRef: s.ref('id-2'),
@@ -218,9 +230,10 @@ describe('createTypedServerless', () => {
     const s = createTypedServerless(defaultParams);
     const myConfig = {
       myResources: s.resources({
-        'id-1': ({ name }) => ({
-          myCustomObject: { name },
-        }),
+        'id-1': ({ name }) =>
+          fakeResource({
+            myCustomObject: { name },
+          }),
       }),
       myObject: s.stringify({
         any: {
@@ -326,14 +339,16 @@ describe('createTypedServerless', () => {
     const myConfig = {
       myResources: {
         ...s.resources({
-          'id-1': ({ name }) => ({
-            myCustomObject: { name },
-          }),
+          'id-1': ({ name }) =>
+            fakeResource({
+              myCustomObject: { name },
+            }),
         }),
         ...s.resources({
-          'id-2': ({ name }) => ({
-            myCustomObject: { name },
-          }),
+          'id-2': ({ name }) =>
+            fakeResource({
+              myCustomObject: { name },
+            }),
         }),
       },
       myObject: {
@@ -398,14 +413,16 @@ describe('createTypedServerless', () => {
     const myConfig = {
       myResources: {
         ...s.resources({
-          'secret-id-1': ({ name, tags }) => ({
-            myCustomObject: { name, tags },
-          }),
+          'secret-id-1': ({ name, tags }) =>
+            fakeResource({
+              myCustomObject: { name, tags },
+            }),
         }),
         ...s.resources({
-          'queue-id-2': ({ name, tags }) => ({
-            myCustomObject: { name, tags },
-          }),
+          'queue-id-2': ({ name, tags }) =>
+            fakeResource({
+              myCustomObject: { name, tags },
+            }),
         }),
       },
       myObject: {
@@ -458,13 +475,13 @@ describe('createTypedServerless', () => {
       myResources: {
         ...s.resources({
           'my-queue': ({ name }) =>
-            new SQS.Queue({
+            SQS.Queue({
               QueueName: name,
             }),
         }),
         ...s.resources({
           'my-bucket': () =>
-            new S3.Bucket({
+            S3.Bucket({
               BucketName: 'my-bucket-fixed-name',
             }),
         }),
@@ -496,9 +513,10 @@ describe('createTypedServerless', () => {
     const myConfig = {
       myResources: {
         ...s.resources({
-          'id-1': ({ name }) => ({
-            myCustomObject: { name },
-          }),
+          'id-1': ({ name }) =>
+            fakeResource({
+              myCustomObject: { name },
+            }),
         }),
       },
       functions: s.functions({
@@ -574,4 +592,8 @@ describe('createTypedServerless', () => {
 
 function clone<T>(config: T): T {
   return JSON.parse(JSON.stringify(config));
+}
+
+function fakeResource<T extends CfnResourceProps>(props: T): CfnResource<T> {
+  return props as unknown as CfnResource<T>;
 }
