@@ -13,11 +13,14 @@ import { debug, error, trace } from '../utils/logger';
 import { traverseObject } from '../utils/traverseObject';
 import { isCfIntrinsicFunction } from '../utils/isCfIntrinsicFunction';
 import {
-  CloudformResourceAdapter,
+  Resource,
   FnSub,
   ResourceBuilder,
   Resources,
-  ServerlessAWSFunction,
+  ResourceProps,
+  Functions,
+  FunctionBuilder,
+  ResourceAdapter,
 } from './types';
 import { getServerlessAwsFunctionLogicalId } from './serverlessNaming';
 import {
@@ -31,35 +34,38 @@ import {
   sqsArn,
   stepFunctionArn,
 } from './arn';
-import { ResourceBase } from 'src';
 
 export type PlaceholderProcessor<ConfigType> = (
   processContext: ProcessContext<ConfigType>
 ) => void;
 
-type ResourceParamFactory<ResourceId, ConfigType, ResourceParams> = (
-  id: ResourceId,
+type ResourceParamFactory<TId, ConfigType, ResourceParams> = (
+  id: TId,
   config: ConfigType
 ) => ResourceParams;
 
 class TypedServerless<
   ConfigType,
-  ResourceId extends string = string,
+  TId extends string = string,
   ResourceParams extends BaseResourceParams = BaseResourceParams
 > {
   protected resourceParamsFactory: ResourceParamFactory<
-    ResourceId,
+    TId,
     ConfigType,
     ResourceParams
   >;
 
+  protected hooks?: Hooks<ConfigType>;
+
   constructor({
     resourceParamsFactory,
-  }: TypedServerlessParams<ConfigType, ResourceId, ResourceParams>) {
+    hooks,
+  }: TypedServerlessParams<ConfigType, TId, ResourceParams>) {
     this.resourceParamsFactory = resourceParamsFactory;
+    this.hooks = hooks;
   }
-  protected createResourcePlaceholder<T>(
-    id: ResourceId,
+  protected createResourcePlaceholder<T extends ResourceProps>(
+    id: TId,
     type: ResourceType,
     builder: ResourceBuilder<ResourceParams, T>
   ): T {
@@ -68,63 +74,95 @@ class TypedServerless<
     );
   }
 
-  protected addResources<T>(
-    type: ResourceType,
-    resources: Partial<Record<ResourceId, ResourceBuilder<ResourceParams, T>>>
-  ): Resources<ResourceId, T> {
+  protected addResources<
+    TResourceId extends TId,
+    TResource extends Resource<TResourceProps>,
+    TResourceProps extends ResourceProps
+  >(resources: {
+    [key in TResourceId]: ResourceBuilder<ResourceParams, TResourceProps>;
+  }): Resources<TResourceId, TResource, TResourceProps> {
     return Object.keys(resources).reduce((out, id) => {
       out[id] = this.createResourcePlaceholder(
-        id as ResourceId,
-        type,
+        id as TResourceId,
+        'resource',
         resources[id]
       );
       return out;
-    }, {} as Resources<ResourceId, T>);
+    }, {});
   }
 
-  resources<T>(
-    resources: Partial<Record<ResourceId, ResourceBuilder<ResourceParams, T>>>
-  ): Resources<ResourceId, CloudformResourceAdapter<T>> {
-    return this.addResources('resource', resources) as Resources<ResourceId, CloudformResourceAdapter<T>>;
+  resources<
+    TResourceId extends TId,
+    TResource extends Resource<TResourceProps>,
+    TResourceProps extends ResourceProps
+  >(resources: {
+    [key in TResourceId]: ResourceBuilder<ResourceParams, TResourceProps>;
+  }) {
+    return this.addResources(resources) as Resources<
+      TResourceId,
+      TResource,
+      TResourceProps
+    >;
   }
 
-  functions(
-    functions: Partial<
-      Record<ResourceId, (resource: ResourceParams) => ServerlessAWSFunction>
-    >
-  ): Resources<ResourceId, ServerlessAWSFunction> {
-    return this.addResources('function', functions);
+  resource<
+    TResourceId extends TId,
+    TResource extends Resource<TResourceProps>,
+    TResourceProps extends ResourceProps
+  >(resource: {
+    [key in TResourceId]: ResourceBuilder<
+      ResourceParams,
+      ResourceAdapter<TResource, TResourceProps>
+    >;
+  }) {
+    return this.resources(resource);
+  }
+
+  functions<
+    TFunctionId extends TId,
+    TFunctionBuilderParams extends ResourceParams
+  >(functions: {
+    [K in TFunctionId]?: FunctionBuilder<TFunctionBuilderParams>;
+  }): Functions<TFunctionId> {
+    return Object.keys(functions).reduce((out, id) => {
+      out[id] = this.createResourcePlaceholder(
+        id as TFunctionId,
+        'function',
+        functions[id]
+      );
+      return out;
+    }, {} as Functions<TFunctionId>);
   }
 
   protected asPlaceholder<T>(placeholder: unknown): T {
     return placeholder as unknown as T;
   }
 
-  refId(id: ResourceId): ResourceId {
-    return new GetResourceLogicalId(id) as unknown as ResourceId;
+  refId(id: TId): TId {
+    return new GetResourceLogicalId(id) as unknown as TId;
   }
 
-  ref<T>(id: ResourceId): T {
+  ref<T>(id: TId): T {
     return this.asPlaceholder(new CfRef(id));
   }
 
-  getRef<T>(id: ResourceId): T {
+  getRef<T>(id: TId): T {
     return this.ref(id);
   }
 
-  arn<T>(id: ResourceId): T {
+  arn<T>(id: TId): T {
     return new CfRefAtt(id, 'Arn') as unknown as T;
   }
 
-  getArn<T>(id: ResourceId): T {
+  getArn<T>(id: TId): T {
     return this.arn(id);
   }
 
-  getAtt<T>(id: ResourceId, attribute: string): T {
+  getAtt<T>(id: TId, attribute: string): T {
     return new CfRefAtt(id, attribute) as unknown as T;
   }
 
-  getName<T>(id: ResourceId): T {
+  getName<T>(id: TId): T {
     return new GetResourceName(id) as unknown as T;
   }
 
@@ -133,34 +171,41 @@ class TypedServerless<
     return { 'Fn::Sub': [content, params] };
   }
 
-  buildLambdaArn(id: ResourceId) {
+  buildLambdaArn(id: TId) {
     return new BuildArn(lambdaArn(id));
   }
-  buildBucketArn(id: ResourceId, path?: string) {
+  buildBucketArn(id: TId, path?: string) {
     return new BuildArn(bucketArn(id, path));
   }
-  buildSnsArn(id: ResourceId) {
+  buildSnsArn(id: TId) {
     return new BuildArn(snsArn(id));
   }
-  buildEventBusArn(id: ResourceId) {
+  buildEventBusArn(id: TId) {
     return new BuildArn(eventBusArn(id));
   }
-  buildSqsArn(id: ResourceId) {
+  buildSqsArn(id: TId) {
     return new BuildArn(sqsArn(id));
   }
   /**
    * @deprecated Prefer #arn - AWS Step Function automatically adds a name suffix, because of that its not possible to build a correct Arn
    */
-  buildStepFunctionArn(id: ResourceId) {
+  buildStepFunctionArn(id: TId) {
     return new BuildArn(stepFunctionArn(id));
   }
-  buildAlarmArn(id: ResourceId) {
+  buildAlarmArn(id: TId) {
     return new BuildArn(alarmArn(id));
   }
-  buildArn(id: ResourceId, params?: BuildArnParamsWithoutResourceId) {
-    return new BuildArn<ResourceId>({ ...params, resourceId: id });
+  buildArn(id: TId, params?: BuildArnParamsWithoutResourceId) {
+    return new BuildArn<TId>({ ...params, resourceId: id });
   }
 
+  /**
+   * The main use case for this is to overcome a limitation in CloudFormation that
+   * does not allow using intrinsic functions as dictionary keys (because
+   * dictionary keys in JSON must be strings). Specifically this is common in IAM
+   * conditions such as `StringEquals: { lhs: "rhs" }` where you want "lhs" to be
+   * a reference.
+   */
   stringify<T>(content: unknown): T {
     return new CfStringify(content) as unknown as T;
   }
@@ -193,7 +238,7 @@ class TypedServerless<
   }
 
   protected requiresResource(
-    targetId: ResourceId,
+    targetId: TId,
     sourcePath: string[],
     { errors, resourceNames, resourceTypes }: ProcessContext<ConfigType>
   ) {
@@ -299,11 +344,31 @@ class TypedServerless<
     });
   }
 
+  protected processHook(
+    hookPhase: HookPhase,
+    processContext: ProcessContext<ConfigType>
+  ) {
+    this.hooks?.[hookPhase]?.(processContext);
+  }
+
   protected processPlaceholders(processContext: ProcessContext<ConfigType>) {
+    // Replace Resource Placeholders
+    this.processHook('before-resource', processContext);
     this.resourcePlaceholderProcessor(processContext);
+    this.processHook('after-resource', processContext);
+
+    // Replace BuildArn Placeholders
     this.buildArnPlaceholderProcessor(processContext);
+
+    // Replace Reference Placeholders
+    this.processHook('before-reference', processContext);
     this.referencePlaceholderProcessor(processContext);
+    this.processHook('after-reference', processContext);
+
+    // Replace Stringify Placeholders
+    this.processHook('before-stringify', processContext);
     this.replaceStringifyPlaceholders(processContext);
+    this.processHook('after-stringify', processContext);
   }
 
   process(config: ConfigType) {
@@ -340,18 +405,34 @@ export type BaseResourceParams = {
   name: string;
 };
 
+type HookPhase =
+  | 'before-resource'
+  | 'after-resource'
+  | 'before-reference'
+  | 'after-reference'
+  | 'before-stringify'
+  | 'after-stringify';
+
+type HookProcessor<TConfigType> = (
+  context: ProcessContext<TConfigType>
+) => void;
+type Hooks<TConfigType> = {
+  [key in HookPhase]?: HookProcessor<TConfigType>;
+};
+
 type TypedServerlessParams<
-  ConfigType,
-  ResourceId extends string = string,
+  TConfigType,
+  TId extends string = string,
   ResourceParams extends BaseResourceParams = BaseResourceParams
 > = {
-  resourceParamsFactory: (id: ResourceId, config: ConfigType) => ResourceParams;
+  resourceParamsFactory: (id: TId, config: TConfigType) => ResourceParams;
+  hooks?: Hooks<TConfigType>;
 };
 
 export function createTypedServerless<
-  ConfigType,
-  ResourceId extends string = string,
-  ResourceParams extends BaseResourceParams = BaseResourceParams
->(params: TypedServerlessParams<ConfigType, ResourceId, ResourceParams>) {
-  return new TypedServerless<ConfigType, ResourceId, ResourceParams>(params);
+  TConfigType,
+  TId extends string = string,
+  TResourceParams extends BaseResourceParams = BaseResourceParams
+>(params: TypedServerlessParams<TConfigType, TId, TResourceParams>) {
+  return new TypedServerless<TConfigType, TId, TResourceParams>(params);
 }

@@ -1,30 +1,34 @@
-import { ResourceBuilder } from './types';
+import { ResourceBuilder, ResourceProps } from './types';
 
 export type ResourceType = 'resource' | 'function';
 
-export class ServerlessResourcePlaceholder<ResourceId, ResourceParams, Output> {
+export class ServerlessResourcePlaceholder<
+  TResourceId,
+  TResourceParams,
+  TResourceProps extends ResourceProps
+> {
   constructor(
-    readonly id: ResourceId,
+    readonly id: TResourceId,
     readonly type: ResourceType,
-    readonly builder: ResourceBuilder<ResourceParams, Output>
+    readonly builder: ResourceBuilder<TResourceParams, TResourceProps>
   ) {}
 }
-export class CfRef<ResourceId> {
-  constructor(readonly id: ResourceId) {}
+export class CfRef<TResourceId> {
+  constructor(readonly id: TResourceId) {}
 }
 
-export class CfRefAtt<ResourceId> extends CfRef<ResourceId> {
-  constructor(readonly id: ResourceId, readonly attribute: string) {
+export class CfRefAtt<TResourceId> extends CfRef<TResourceId> {
+  constructor(readonly id: TResourceId, readonly attribute: string) {
     super(id);
   }
 }
 
-export class GetResourceName<ResourceId> {
-  constructor(readonly id: ResourceId) {}
+export class GetResourceName<TResourceId> {
+  constructor(readonly id: TResourceId) {}
 }
 
-export class GetResourceLogicalId<ResourceId> {
-  constructor(readonly id: ResourceId) {}
+export class GetResourceLogicalId<TResourceId> {
+  constructor(readonly id: TResourceId) {}
 }
 
 export class CfStringify {
@@ -38,7 +42,7 @@ export class CfStringify {
  * - 'arn:partition:service:region:account-id:resource-type/resource-id'
  * - 'arn:partition:service:region:account-id:resource-type:resource-id'
  */
-export class BuildArn<ResourceId> {
+export class BuildArn<TResourceId> {
   constructor(
     readonly params: {
       partition?: string;
@@ -46,7 +50,7 @@ export class BuildArn<ResourceId> {
       region?: string;
       namespace?: string;
       type?: string;
-      resourceId: ResourceId;
+      resourceId: TResourceId;
       path?: string;
       typeToResourceSeparator?: ':' | '/';
     }

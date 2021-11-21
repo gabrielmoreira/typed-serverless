@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
-import { SQS, SNS } from '../../src';
-import typed, { policies } from './typed-serverless';
+import { SQS, SNS } from 'typed-aws';
+import typed, { outputs, policies } from './typed-serverless';
 
 const serverlessConfiguration: AWS = {
   service: 'basic',
@@ -12,6 +12,9 @@ const serverlessConfiguration: AWS = {
     memorySize: 128,
     lambdaHashingVersion: '20201221',
     timeout: 30,
+    tags: {
+      myCustomTag: 'sample',
+    },
     iam: {
       role: {
         statements: [
@@ -25,23 +28,37 @@ const serverlessConfiguration: AWS = {
   },
   plugins: ['serverless-esbuild'],
   resources: {
-    Resources: typed.resources({
-      // Defines our resources in a type safe manner
-      FirstQueue: ({ name }) =>
-        new SQS.Queue({
-          QueueName: name,
-          VisibilityTimeout: 60,
-        }),
-      SecondQueue: ({ name }) =>
-        new SQS.Queue({
-          QueueName: name,
-          VisibilityTimeout: 60,
-        }),
-      MySnsTopic: ({ name }) =>
-        new SNS.Topic({
-          TopicName: name,
-          DisplayName: 'Forward messages to SecondQueue',
-        }),
+    Resources: {
+      ...typed.resources({
+        FirstQueue: ({ name, tagsArray }) =>
+          SQS.Queue({
+            QueueName: name,
+            VisibilityTimeout: 60,
+            Tags: tagsArray,
+          }),
+        SecondQueue: ({ name, tagsArray }) =>
+          SQS.Queue({
+            QueueName: name,
+            VisibilityTimeout: 60,
+            Tags: tagsArray,
+          }),
+        MySnsTopic: ({ name, tagsArray }) =>
+          SNS.Topic({
+            TopicName: name,
+            DisplayName: 'Forward messages to SecondQueue',
+            Tags: tagsArray,
+          }),
+      }),
+    },
+    Outputs: outputs({
+      MyFirstQueueName: {
+        Description: 'My first queue name',
+        Value: typed.getName('FirstQueue'),
+      },
+      MyFirstQueueUrl: {
+        Description: 'My first queue URL',
+        Value: typed.ref('FirstQueue'),
+      },
     }),
   },
   functions: typed.functions({
