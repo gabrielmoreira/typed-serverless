@@ -12,14 +12,12 @@
     "module": "commonjs",
     "target": "ES2020",
     "baseUrl": ".",
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./lib",
     "declaration": true,
     "downlevelIteration": true,
     "skipLibCheck": true,
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": [
-    "./src"
-  ]
+  "include": ["./src"]
 }

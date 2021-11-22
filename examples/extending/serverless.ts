@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
 import { SQS, SNS, Fn } from 'typed-aws';
-import { typed, outputs, policies, printConfig } from './serverless/base';
+import { typed, printConfig } from './serverless/base';
 
 const serverlessConfiguration: AWS = {
   service: 'basic',
@@ -18,10 +18,10 @@ const serverlessConfiguration: AWS = {
     iam: {
       role: {
         statements: [
-          ...policies.sqsFullAccess('FirstQueue'),
-          ...policies.sqsFullAccess('SecondQueue'),
-          ...policies.lambdaInvokeFunction('Forward'),
-          ...policies.snsPublish('MySnsTopic'),
+          ...typed.policies.sqsFullAccess('FirstQueue'),
+          ...typed.policies.sqsFullAccess('SecondQueue'),
+          ...typed.policies.lambdaInvokeFunction('Forward'),
+          ...typed.policies.snsPublish('MySnsTopic'),
         ],
       },
     },
@@ -30,29 +30,29 @@ const serverlessConfiguration: AWS = {
   resources: {
     Resources: {
       ...typed.resources({
-        FirstQueue: ({ name, tagsArray }) =>
+        FirstQueue: ({ name, awsTags }) =>
           SQS.Queue({
             QueueName: name,
             VisibilityTimeout: 60,
-            Tags: tagsArray,
+            Tags: awsTags,
           }),
-        SecondQueue: ({ name, tagsArray }) =>
+        SecondQueue: ({ name, awsTags }) =>
           SQS.Queue({
             QueueName: name,
             VisibilityTimeout: 60,
-            Tags: tagsArray,
+            Tags: awsTags,
           }),
       }),
       ...typed.resources({
-        MySnsTopic: ({ name, tagsArray }) =>
+        MySnsTopic: ({ name, awsTags }) =>
           SNS.Topic({
             TopicName: name,
             DisplayName: 'Forward messages to SecondQueue',
-            Tags: tagsArray,
+            Tags: awsTags,
           }),
       }),
     },
-    Outputs: outputs({
+    Outputs: typed.outputs({
       MyFirstQueueName: {
         Description: 'My first queue name',
         Value: typed.getName('FirstQueue'),

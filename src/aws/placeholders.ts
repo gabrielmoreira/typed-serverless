@@ -1,6 +1,4 @@
-import { ResourceBuilder, ResourceProps } from './types';
-
-export type ResourceType = 'resource' | 'function';
+import { ResourceBuilder, ResourceProps, ResourceType } from './types';
 
 export class ServerlessResourcePlaceholder<
   TResourceId,

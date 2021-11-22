@@ -5,7 +5,6 @@ import {
   CfStringify,
   GetResourceLogicalId,
   GetResourceName,
-  ResourceType,
   ServerlessResourcePlaceholder,
 } from './placeholders';
 import { replaceValue } from '../utils/replaceValue';
@@ -22,6 +21,11 @@ import {
   FunctionBuilder,
   ResourceAdapter,
   ServerlessFunction,
+  BaseResourceParams,
+  HookPhase,
+  ProcessContext,
+  ResourceType,
+  TypedServerlessParams,
 } from './types';
 import { getServerlessAwsFunctionLogicalId } from './serverlessNaming';
 import {
@@ -35,29 +39,54 @@ import {
   sqsArn,
   stepFunctionArn,
 } from './arn';
-import { Resolvable, CfnResourceProps } from 'typed-aws';
+import { Resolvable } from 'typed-aws';
+import { AWS } from '@serverless/typescript';
+import { defaultTypedServerlessParams } from './defaults';
 
-export type PlaceholderProcessor<ConfigType> = (
-  processContext: ProcessContext<ConfigType>
-) => void;
-
-class TypedServerless<
-  ConfigType,
+export class TypedServerless<
   TId extends string = string,
-  ResourceParams extends BaseResourceParams = BaseResourceParams
+  TResourceParams extends BaseResourceParams = BaseResourceParams,
+  TConfigType extends AWS = AWS
 > {
-  constructor(
-    readonly params: TypedServerlessParams<ConfigType, TId, ResourceParams>
+  private constructor(
+    readonly params: TypedServerlessParams<TId, TResourceParams, TConfigType>
   ) {}
+
+  static createDefault<TId extends string = string>() {
+    return new TypedServerless(defaultTypedServerlessParams<TId>());
+  }
+
+  static create<
+    TId extends string = string,
+    TResourceParams extends BaseResourceParams = BaseResourceParams,
+    TConfigType extends AWS = AWS
+  >(params: TypedServerlessParams<TId, TResourceParams, TConfigType>) {
+    return new TypedServerless<TId, TResourceParams, TConfigType>(params);
+  }
 
   protected createResourcePlaceholder<T extends ResourceProps>(
     id: TId,
     type: ResourceType,
-    builder: ResourceBuilder<ResourceParams, T>
+    builder: ResourceBuilder<TResourceParams, T>
   ): T {
     return this.asPlaceholder(
       new ServerlessResourcePlaceholder(id, type, builder)
     );
+  }
+
+  extendsWith<T>(
+    object: T
+  ): TypedServerless<TId, TResourceParams, TConfigType> & T {
+    const newInstance: TypedServerless<TId, TResourceParams, TConfigType> & T =
+      Object.create(this);
+    Object.assign(newInstance, object);
+    return newInstance;
+  }
+
+  only<Y extends string = string, X = unknown>(object: { [k in Y]: X }): {
+    [k in Y]: X;
+  } {
+    return object;
   }
 
   protected addResources<
@@ -65,7 +94,7 @@ class TypedServerless<
     TResource extends Resource<TResourceProps>,
     TResourceProps extends ResourceProps
   >(resources: {
-    [key in TResourceId]: ResourceBuilder<ResourceParams, TResourceProps>;
+    [key in TResourceId]: ResourceBuilder<TResourceParams, TResourceProps>;
   }): Resources<TResourceId, TResource, TResourceProps> {
     return Object.keys(resources).reduce((out, id) => {
       out[id] = this.createResourcePlaceholder(
@@ -82,7 +111,7 @@ class TypedServerless<
     TResource extends Resource<TResourceProps>,
     TResourceProps extends ResourceProps
   >(resources: {
-    [key in TResourceId]: ResourceBuilder<ResourceParams, TResourceProps>;
+    [key in TResourceId]: ResourceBuilder<TResourceParams, TResourceProps>;
   }) {
     return this.addResources(resources) as Resources<
       TResourceId,
@@ -97,7 +126,7 @@ class TypedServerless<
     TResourceProps extends ResourceProps
   >(resource: {
     [key in TResourceId]: ResourceBuilder<
-      ResourceParams,
+      TResourceParams,
       ResourceAdapter<TResource, TResourceProps>
     >;
   }) {
@@ -106,7 +135,7 @@ class TypedServerless<
 
   functions<
     TFunctionId extends TId,
-    TFunctionBuilderParams extends ResourceParams
+    TFunctionBuilderParams extends TResourceParams
   >(functions: {
     [K in TFunctionId]?: FunctionBuilder<TFunctionBuilderParams>;
   }): Functions<TFunctionId> {
@@ -235,7 +264,7 @@ class TypedServerless<
   protected requiresResource(
     targetId: TId,
     sourcePath: string[],
-    { errors, resourceNames, resourceTypes }: ProcessContext<ConfigType>
+    { errors, resourceNames, resourceTypes }: ProcessContext<TConfigType>
   ) {
     // validate if it's pointing to a registered resource...
     const name = resourceNames[targetId];
@@ -255,7 +284,7 @@ class TypedServerless<
   }
 
   protected buildArnPlaceholderProcessor(
-    processContext: ProcessContext<ConfigType>
+    processContext: ProcessContext<TConfigType>
   ) {
     // deep traverse our config to find and replace placeholders
     traverseObject(processContext.config, (node, parent, key, path) => {
@@ -277,7 +306,7 @@ class TypedServerless<
   }
 
   protected referencePlaceholderProcessor(
-    processContext: ProcessContext<ConfigType>
+    processContext: ProcessContext<TConfigType>
   ) {
     // deep traverse our config to find and replace placeholders
     traverseObject(processContext.config, (node, parent, key, path) => {
@@ -310,7 +339,7 @@ class TypedServerless<
 
   protected replaceStringifyPlaceholders({
     config,
-  }: ProcessContext<ConfigType>) {
+  }: ProcessContext<TConfigType>) {
     // deep traverse our config to find and replace placeholders
     traverseObject(config, (node, parent, key, path) => {
       if (node instanceof CfStringify) {
@@ -341,12 +370,12 @@ class TypedServerless<
 
   protected processHook(
     hookPhase: HookPhase,
-    processContext: ProcessContext<ConfigType>
+    processContext: ProcessContext<TConfigType>
   ) {
     this.params.hooks?.[hookPhase]?.(processContext);
   }
 
-  protected processPlaceholders(processContext: ProcessContext<ConfigType>) {
+  protected processPlaceholders(processContext: ProcessContext<TConfigType>) {
     // Replace Resource Placeholders
     this.processHook('before-resource', processContext);
     this.resourcePlaceholderProcessor(processContext);
@@ -366,8 +395,8 @@ class TypedServerless<
     this.processHook('after-stringify', processContext);
   }
 
-  process(config: ConfigType) {
-    const processContext: ProcessContext<ConfigType> = {
+  process(config: TConfigType) {
+    const processContext: ProcessContext<TConfigType> = {
       config,
       errors: [],
       resourceNames: {},
@@ -377,7 +406,7 @@ class TypedServerless<
     return processContext;
   }
 
-  build(rawConfig: ConfigType) {
+  build(rawConfig: TConfigType) {
     const { config, errors } = this.process(rawConfig);
     if (errors.length) {
       throw Object.assign(
@@ -387,49 +416,4 @@ class TypedServerless<
     }
     return config;
   }
-}
-
-export type ProcessContext<T> = {
-  config: T;
-  resourceNames: Record<string, string>;
-  resourceTypes: Record<string, ResourceType>;
-  errors: string[];
-};
-
-export type BaseResourceParams = {
-  name: string;
-};
-
-type HookPhase =
-  | 'before-resource'
-  | 'after-resource'
-  | 'before-reference'
-  | 'after-reference'
-  | 'before-stringify'
-  | 'after-stringify';
-
-type HookProcessor<TConfigType> = (
-  context: ProcessContext<TConfigType>
-) => void;
-type Hooks<TConfigType> = {
-  [key in HookPhase]?: HookProcessor<TConfigType>;
-};
-
-type TypedServerlessParams<
-  TConfigType,
-  TId extends string = string,
-  ResourceParams extends BaseResourceParams = BaseResourceParams
-> = {
-  resourceParamsFactory: (id: TId, config: TConfigType) => ResourceParams;
-  onResourceCreated?: (resource: Resource<CfnResourceProps>) => void;
-  onFunctionCreated?: (lambda: ServerlessFunction) => void;
-  hooks?: Hooks<TConfigType>;
-};
-
-export function createTypedServerless<
-  TConfigType,
-  TId extends string = string,
-  TResourceParams extends BaseResourceParams = BaseResourceParams
->(params: TypedServerlessParams<TConfigType, TId, TResourceParams>) {
-  return new TypedServerless<TConfigType, TId, TResourceParams>(params);
 }

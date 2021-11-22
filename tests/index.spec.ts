@@ -1,5 +1,6 @@
+import { AWS } from '@serverless/typescript';
 import {
-  createTypedServerless,
+  TypedServerless,
   SQS,
   S3,
   CfnResource,
@@ -8,7 +9,7 @@ import {
 import { CfRef } from '../src/aws/placeholders';
 
 const defaultParams = {
-  resourceParamsFactory: (id: string): { name: string } => {
+  resourceParamsFactory: (id: string) => {
     return { name: `my-custom-name-${id}` };
   },
 };
@@ -16,7 +17,7 @@ const defaultParams = {
 describe('createTypedServerless', () => {
   it('should build and replace resources', () => {
     // Given
-    const s = createTypedServerless(defaultParams);
+    const s = TypedServerless.create(defaultParams);
     const myConfig = {
       myResources: s.resources({
         'id-1': ({ name }) =>
@@ -45,7 +46,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = clone(s.build(myConfig));
+    const finalConfig = clone(s.build(myConfig as unknown as AWS));
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -81,7 +82,7 @@ describe('createTypedServerless', () => {
   });
   it('should be able to reference a resource', () => {
     // Given
-    const s = createTypedServerless(defaultParams);
+    const s = TypedServerless.create(defaultParams);
     const myConfig = {
       myResources: {
         ...s.resources({
@@ -119,7 +120,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = s.build(myConfig);
+    const finalConfig = clone(s.build(myConfig as unknown as AWS));
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -184,7 +185,7 @@ describe('createTypedServerless', () => {
   });
   it('should fail if you reference an invalid resource', () => {
     // Given
-    const s = createTypedServerless(defaultParams);
+    const s = TypedServerless.create(defaultParams);
     const myConfig = {
       myResources: s.resources({
         'id-1': ({ name }) =>
@@ -200,8 +201,8 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    expect(() => s.build(myConfig)).toThrow('Validation errors!');
-    const result = s.process(myConfig);
+    expect(() => s.build(myConfig as unknown as AWS)).toThrow('Validation errors!');
+    const result = s.process(myConfig as unknown as AWS);
     // Then
     expect(result.errors).toStrictEqual([
       "Referenced resource 'id-2' not found! Check your configuration at 'any.logicalRef'",
@@ -227,7 +228,7 @@ describe('createTypedServerless', () => {
   });
   it('should be able to extract any CF intrinsic function to parameter substitution before "stringify" an object', () => {
     // Given
-    const s = createTypedServerless(defaultParams);
+    const s = TypedServerless.create(defaultParams);
     const myConfig = {
       myResources: s.resources({
         'id-1': ({ name }) =>
@@ -258,7 +259,7 @@ describe('createTypedServerless', () => {
       }),
     };
     // When
-    const finalConfig = s.build(myConfig);
+    const finalConfig = s.build(myConfig as unknown as AWS);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -331,11 +332,7 @@ describe('createTypedServerless', () => {
   it('support typescript type checking for ids', () => {
     // Given
     type ValidIds = 'id-1' | 'id-2';
-    const s = createTypedServerless<unknown, ValidIds>({
-      resourceParamsFactory: (id) => {
-        return { name: `my-custom-name-${id}` };
-      },
-    });
+    const s = TypedServerless.create<ValidIds>(defaultParams);
     const myConfig = {
       myResources: {
         ...s.resources({
@@ -361,7 +358,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = s.build(myConfig);
+    const finalConfig = s.build(myConfig as unknown as AWS);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -401,7 +398,7 @@ describe('createTypedServerless', () => {
     };
     const service = 'testing';
     const stage = 'dev';
-    const s = createTypedServerless<unknown, ValidIds, ResourceParamsWithTags>({
+    const s = TypedServerless.create<ValidIds, ResourceParamsWithTags>({
       resourceParamsFactory: (id) => {
         const [type, ...names] = id.split('-');
         const name = names.join('-');
@@ -435,7 +432,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = s.build(myConfig);
+    const finalConfig = s.build(myConfig as unknown as AWS);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -470,7 +467,7 @@ describe('createTypedServerless', () => {
   });
   it('should support cloudform-types', () => {
     // Given
-    const s = createTypedServerless(defaultParams);
+    const s = TypedServerless.create(defaultParams);
     const myConfig = {
       myResources: {
         ...s.resources({
@@ -488,7 +485,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = JSON.parse(JSON.stringify(s.build(myConfig)));
+    const finalConfig = JSON.parse(JSON.stringify(s.build(myConfig as unknown as AWS)));
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
@@ -509,7 +506,7 @@ describe('createTypedServerless', () => {
   });
   it('should be able to build arn for a resource', () => {
     // Given
-    const s = createTypedServerless(defaultParams);
+    const s = TypedServerless.create(defaultParams);
     const myConfig = {
       myResources: {
         ...s.resources({
@@ -537,7 +534,7 @@ describe('createTypedServerless', () => {
       },
     };
     // When
-    const finalConfig = s.build(myConfig);
+    const finalConfig = s.build(myConfig as unknown as AWS);
     // Then
     expect(finalConfig).toStrictEqual({
       myResources: {
