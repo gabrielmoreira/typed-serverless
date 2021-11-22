@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
-import { SQS, SNS } from 'typed-aws';
-import typed, { outputs, policies } from './typed-serverless';
+import { SQS, SNS, Fn } from 'typed-aws';
+import { typed, outputs, policies, printConfig } from './serverless/base';
 
 const serverlessConfiguration: AWS = {
   service: 'basic',
@@ -13,7 +13,7 @@ const serverlessConfiguration: AWS = {
     lambdaHashingVersion: '20201221',
     timeout: 30,
     tags: {
-      myCustomTag: 'sample',
+      myCustomTag: 'basic-sample',
     },
     iam: {
       role: {
@@ -42,6 +42,8 @@ const serverlessConfiguration: AWS = {
             VisibilityTimeout: 60,
             Tags: tagsArray,
           }),
+      }),
+      ...typed.resources({
         MySnsTopic: ({ name, tagsArray }) =>
           SNS.Topic({
             TopicName: name,
@@ -65,7 +67,8 @@ const serverlessConfiguration: AWS = {
     // Send a message to a FirstQueue (Open /send?message=some+message in your browser)
     Send: ({ name }) => ({
       name,
-      handler: './sender.handler',
+      handler: './lambdas/sender.handler',
+      events: [{ http: { method: 'get', path: 'send' } }],
       environment: {
         // type safe reference to a queue, it fails if this ref is not previously registered
         QUEUE_URL: typed.ref('FirstQueue'),
@@ -82,22 +85,17 @@ const serverlessConfiguration: AWS = {
           myLambdaRef: typed.ref('Forward'),
           myLambdaArn: typed.getArn('Forward'),
           myLambdaGivenName: typed.getName('Forward'),
+          usingCFExpressions: typed.cfn(
+            Fn.Sub('myqueue is ${queue}', { queue: typed.ref('FirstQueue') })
+          ),
         }),
       },
-      events: [
-        {
-          http: {
-            method: 'get',
-            path: 'send',
-          },
-        },
-      ],
     }),
     // Automatically triggered by any message sent to FirstQueue,
     // and than we forward it to SecondQueue
     Forward: ({ name }) => ({
       name,
-      handler: './forward.handler',
+      handler: './lambdas/forward.handler',
       environment: {
         QUEUE_URL: typed.ref('SecondQueue'), // type safe reference to a resource
       },
@@ -119,27 +117,13 @@ const serverlessConfiguration: AWS = {
     // Poll a message from SecondQueue (Open /poll in your browser)
     Poll: ({ name }) => ({
       name,
-      handler: './poll.handler',
+      handler: './lambdas/poll.handler',
+      events: [{ http: { method: 'get', path: 'poll' } }],
       environment: {
         QUEUE_URL: typed.ref('SecondQueue'), // type safe reference to a resource
       },
-      events: [
-        {
-          http: {
-            method: 'get',
-            path: 'poll',
-          },
-        },
-      ],
     }),
   }),
 };
 
-const print = (t) => {
-  console.log('Final configuration:');
-  console.dir(t, { depth: 999 });
-  console.log('');
-  return t;
-};
-
-module.exports = print(typed.build(serverlessConfiguration));
+module.exports = printConfig(typed.build(serverlessConfiguration));

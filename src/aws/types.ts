@@ -32,10 +32,12 @@ export type Functions<TFunctionId extends string> = {
   [key in TFunctionId]?: ServerlessAWSFunction;
 };
 
-export type ServerlessAWSFunction = Exclude<
+type ServerlessAWSFunction = Exclude<
   AWS['functions'],
   undefined
 >[string];
+
+export type ServerlessFunction = ServerlessAWSFunction;
 
 type AWSResources = Exclude<
   Exclude<AWS['resources'], undefined>['Resources'],

@@ -21,6 +21,7 @@ import {
   Functions,
   FunctionBuilder,
   ResourceAdapter,
+  ServerlessFunction,
 } from './types';
 import { getServerlessAwsFunctionLogicalId } from './serverlessNaming';
 import {
@@ -34,36 +35,21 @@ import {
   sqsArn,
   stepFunctionArn,
 } from './arn';
+import { Resolvable, CfnResourceProps } from 'typed-aws';
 
 export type PlaceholderProcessor<ConfigType> = (
   processContext: ProcessContext<ConfigType>
 ) => void;
-
-type ResourceParamFactory<TId, ConfigType, ResourceParams> = (
-  id: TId,
-  config: ConfigType
-) => ResourceParams;
 
 class TypedServerless<
   ConfigType,
   TId extends string = string,
   ResourceParams extends BaseResourceParams = BaseResourceParams
 > {
-  protected resourceParamsFactory: ResourceParamFactory<
-    TId,
-    ConfigType,
-    ResourceParams
-  >;
+  constructor(
+    readonly params: TypedServerlessParams<ConfigType, TId, ResourceParams>
+  ) {}
 
-  protected hooks?: Hooks<ConfigType>;
-
-  constructor({
-    resourceParamsFactory,
-    hooks,
-  }: TypedServerlessParams<ConfigType, TId, ResourceParams>) {
-    this.resourceParamsFactory = resourceParamsFactory;
-    this.hooks = hooks;
-  }
   protected createResourcePlaceholder<T extends ResourceProps>(
     id: TId,
     type: ResourceType,
@@ -210,6 +196,10 @@ class TypedServerless<
     return new CfStringify(content) as unknown as T;
   }
 
+  cfn<T>(expression: Resolvable<string>): T {
+    return expression as T;
+  }
+
   protected resourcePlaceholderProcessor({
     config,
     resourceNames,
@@ -220,16 +210,21 @@ class TypedServerless<
       if (node instanceof ServerlessResourcePlaceholder) {
         const { id, type, builder } = node;
         debug('Registering resource', id);
-        const params = this.resourceParamsFactory(id, config);
-        trace('Resource', id, 'parameters:', params);
+        const params = this.params.resourceParamsFactory(id, config);
+        trace('Creating', type, id, 'parameters:', params);
         // Register this resource name and type
         resourceNames[id] = params.name;
         resourceTypes[id] = type;
         // Invoke builder to create new data for this placeholder
-        const newData = builder(params);
-        trace('Resource', id, 'newData:', newData);
+        const object = builder(params);
+        trace('Created', type, id, 'object:', object);
         // Replace placeholder with new data
-        replaceValue(parent, key, path, newData);
+        replaceValue(parent, key, path, object);
+        if (type === 'resource') {
+          this.params?.onResourceCreated?.(object);
+        } else if (type === 'function') {
+          this.params?.onFunctionCreated?.(object as ServerlessFunction);
+        }
         // stop visiting child properties, we do not support nested resources
         return false;
       }
@@ -348,7 +343,7 @@ class TypedServerless<
     hookPhase: HookPhase,
     processContext: ProcessContext<ConfigType>
   ) {
-    this.hooks?.[hookPhase]?.(processContext);
+    this.params.hooks?.[hookPhase]?.(processContext);
   }
 
   protected processPlaceholders(processContext: ProcessContext<ConfigType>) {
@@ -426,6 +421,8 @@ type TypedServerlessParams<
   ResourceParams extends BaseResourceParams = BaseResourceParams
 > = {
   resourceParamsFactory: (id: TId, config: TConfigType) => ResourceParams;
+  onResourceCreated?: (resource: Resource<CfnResourceProps>) => void;
+  onFunctionCreated?: (lambda: ServerlessFunction) => void;
   hooks?: Hooks<TConfigType>;
 };
 

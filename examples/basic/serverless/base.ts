@@ -1,23 +1,21 @@
 import type { AWS } from '@serverless/typescript';
 import {
-  createTypedServerless,
-  getServerlessStage,
-  BaseResourceParams,
-} from '../../src'; // use 'typed-serverless' here
-
-// Define CloudFormation resource ids by type
-export type TopicIds = 'MySnsTopic';
-export type FunctionIds = 'Send' | 'Forward' | 'Poll';
-export type QueueIds = 'FirstQueue' | 'SecondQueue';
-
-// Define possible output ids
-export type OutputsIds = 'MyFirstQueueName' | 'MyFirstQueueUrl';
-
-// Define all CloudFormation resource ids
-export type ResourceIds = TopicIds | FunctionIds | QueueIds;
+  ResourceIds,
+  CustomResourceParams,
+  OutputsIds,
+  Output,
+  QueueIds,
+  FunctionIds,
+  TopicIds,
+} from './types';
+import { createTypedServerless, getServerlessStage } from '../../../src'; // use 'typed-serverless' here
 
 // Create a new TypedServerless instance
-const typed = createTypedServerless<AWS, ResourceIds, MyCustomResourceParams>({
+export const typed = createTypedServerless<
+  AWS,
+  ResourceIds,
+  CustomResourceParams
+>({
   // resourceParamsFactory function will be invoked BEFORE each resource created with
   // typed.resources('id', (Params) => SQS.Queue({ Name: Params.name }))
   // where Params will be the result of the following function execution:
@@ -38,13 +36,10 @@ const typed = createTypedServerless<AWS, ResourceIds, MyCustomResourceParams>({
   },
 });
 
-export default typed;
-
-// Helps you enforce type safe Cloudformation Outputs
-type Output = { Description: string; Value: unknown };
+// Helps we enforce all outputs are using valid ids
 export const outputs = (outputs: { [key in OutputsIds]?: Output }) => outputs;
 
-// Helps you enforce type safe IAM Role/Policies references to resources
+// Helps we enforce type safe IAM Role/Policies references to resources
 export const policies = {
   sqsFullAccess: (queueId: QueueIds) => [
     {
@@ -71,10 +66,10 @@ export const policies = {
   ],
 };
 
-// Custom resources parameters
-export type MyCustomResourceParams = BaseResourceParams & {
-  tags?: {
-    [k: string]: string;
-  };
-  tagsArray?: { Key: string; Value: string }[];
+// Helps we print our final Serverless config as a JSON string
+export const printConfig = (t: unknown) => {
+  console.log('Final configuration:');
+  console.dir(JSON.parse(JSON.stringify(t)), { depth: 999 });
+  console.log('');
+  return t;
 };
