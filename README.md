@@ -56,13 +56,14 @@ Serverless Framework is a great framework to create serverless applications, but
 
 ## <a name="quick-start"></a> Quick Start
 
-This is an example of how to list things you need to use the software and how to install them.
 ### Install Via NPM:
   ```bash
   npm install --save-dev typed-serverless typed-aws serverless ts-node serverless-esbuild
   ```
 
 ### Create a Serverless configuration
+
+Create a `serverless.ts`:
   ```ts
   import type { AWS } from '@serverless/typescript';
   import { TypedServerless, SQS } from 'typed-serverless';
@@ -116,6 +117,34 @@ This is an example of how to list things you need to use the software and how to
 
   module.exports = typed.build(serverlessConfiguration);
   ```
+### Create your Lambda
+
+Create your first lambda file `mylambda.handler`:
+
+```ts
+import { SQS } from 'aws-sdk';
+
+const sqs = new SQS();
+
+export const handler = async (event) => {
+  const messageSent = await sqs
+    .sendMessage({
+      QueueUrl: process.env.QUEUE_URL,
+      MessageBody: JSON.stringify({
+        createdAt: new Date().toISOString(),
+        event,
+      }),
+    })
+    .promise();
+  return { statusCode: 200, body: JSON.stringify({ messageSent })};
+};
+```
+
+### Deploy it!
+
+```bash
+npx sls --stage dev deploy
+```
 
 ## Usage
 
