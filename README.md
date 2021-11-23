@@ -341,7 +341,8 @@ const serverlessConfiguration: AWS = {
       handler: './mylambda.handler',
       events: [{ http: { method: 'get', path: 'send' } }],
       environment: {
-        MY_LAMBDA_ARN: typed.buildLambdaArn('SendMessageFn'),
+        MY_LAMBDA_ARN: typed.buildLambdaArn('SendMessageFn'), // <-- It works!
+        // MY_LAMBDA_ARN: typed.arn('SendMessageFn'), // <-- It doesn't work: Circular reference error
       },
     }),
   }),
