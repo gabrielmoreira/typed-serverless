@@ -193,7 +193,7 @@ Use this function to make a CloudFormation reference to a resource. E.g. `{'Ref'
 Note: This function will also validate if you are referencing a defined resource using `resources({ ... })`
 
 ```ts
-type Ids = 'MyQueue' | 'MyDeadLetterQueue';
+type Ids = 'MyQueue' | 'SendMessageFn';
 const typed = TypedServerless.createDefault<Ids>();
 
 const serverlessConfiguration: AWS = {
@@ -291,7 +291,7 @@ The main use case for this is to overcome a limitation in CloudFormation that do
 - `anyObject` should be any valid TypeScript object.
 
 ```ts
-type Ids = 'MyQueue' | 'MyDeadLetterQueue';
+type Ids = 'MyQueue' | 'SendMessageFn';
 const typed = TypedServerless.createDefault<Ids>();
 
 const serverlessConfiguration: AWS = {
@@ -330,7 +330,7 @@ The main use case for this is to overcome a limitation in CloudFormation that do
 - `ResourceId` should be a valid string literal type defined at `Ids` in `TypedServerless.createDefault<Ids>()`
 
 ```ts
-type Ids = 'MyQueue' | 'MyDeadLetterQueue';
+type Ids = 'MyQueue' | 'SendMessageFn';
 const typed = TypedServerless.createDefault<Ids>();
 
 const serverlessConfiguration: AWS = {
