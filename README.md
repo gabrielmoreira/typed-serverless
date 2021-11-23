@@ -58,7 +58,7 @@ Serverless Framework is a great framework to create serverless applications, but
 
 ### Install Via NPM:
   ```bash
-  npm install --save-dev typed-serverless typed-aws serverless ts-node serverless-esbuild
+  npm install --save-dev typed-serverless typed-aws serverless @serverless/typescript serverless-esbuild ts-node
   ```
 
 ### Create a Serverless configuration
