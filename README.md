@@ -370,7 +370,7 @@ TODO Document
 ```
 TODO Document
 
-### <a name="api-extendWith"></a> `extendWith(object)`
+### <a name="api-extendWith"></a> `extendWith((typed) => extension)`
 
 TODO Document
 

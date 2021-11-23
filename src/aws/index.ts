@@ -75,12 +75,20 @@ export class TypedServerless<
   }
 
   extendsWith<T>(
-    object: T
+    extension: (typed: TypedServerless<TId, TResourceParams, TConfigType>) => T
   ): TypedServerless<TId, TResourceParams, TConfigType> & T {
     const newInstance: TypedServerless<TId, TResourceParams, TConfigType> & T =
       Object.create(this);
-    Object.assign(newInstance, object);
+    Object.assign(newInstance, extension(this));
     return newInstance;
+  }
+
+  onlyFactory<Y extends string = string, X = unknown>(): (object: {
+    [k in Y]: X;
+  }) => {
+    [k in Y]: X;
+  } {
+    return (object) => object;
   }
 
   only<Y extends string = string, X = unknown>(object: { [k in Y]: X }): {

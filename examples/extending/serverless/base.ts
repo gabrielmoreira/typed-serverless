@@ -13,10 +13,9 @@ import { TypedServerless } from '../../../src';
 // Create a new TypedServerless instance
 export const typed = TypedServerless.createDefault<ResourceIds>()
   // extends this TypedServerless instance with following properties
-  .extendsWith({
-    // Helps we enforce all outputs are using valid ids
-    outputs: (outputs: { [key in OutputsIds]?: Output }) => outputs,
-
+  .extendsWith((typed) => ({
+    // Helps we enforce that outputs are using valid ids
+    outputs: typed.onlyFactory<OutputsIds, Output>(),
     // Helps we enforce type safe IAM Role/Policies references to resources
     policies: {
       sqsFullAccess: (queueId: QueueIds) => [
@@ -43,7 +42,7 @@ export const typed = TypedServerless.createDefault<ResourceIds>()
         },
       ],
     },
-  });
+  }));
 
 // Helps we print our final Serverless config as a JSON string
 export const printConfig = (t: unknown) => {
