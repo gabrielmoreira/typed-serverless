@@ -163,7 +163,7 @@ Used to define your resources.
 
 Tip: We are using `typed-aws` to provide almost all CloudFormation Resource. Please check if your [resource is available](https://github.com/gabrielmoreira/typed-aws/tree/main/types/resources).
 
-Tip: You can also create your own `resourceParams` by providing a custom `resourceParamsFactory` through `TypedServerless.create<Ids>({ resourceParamsFactory })`. See our default implementation at `https://github.com/gabrielmoreira/typed-serverless/tree/main/src/aws/defaults.ts` 
+Tip: You can also create your own `resourceParams` by providing a custom `resourceParamsFactory` through `TypedServerless.create<Ids>({ resourceParamsFactory })`. Check out [our default implementation](https://github.com/gabrielmoreira/typed-serverless/tree/main/src/aws/defaults.ts). 
 
 E.g.
 ```ts
@@ -286,7 +286,7 @@ const serverlessConfiguration: AWS = {
 
 Use this function to be able to serialize an object to a JSON string when you also want to support CloudFormation expressions evaluation inside the object.
 
-The main use case for this is to overcome a limitation in CloudFormation that does not allow using CloudFormation intrinsic functions (like Fn::Get, Ref, Fn::*) in a JSON string. This is common when creating a AWS CloudWatch Dashboard, a Step Function State Machine, and other places.
+The main use case for this is to overcome a limitation in CloudFormation that does not allow using CloudFormation intrinsic functions (like Fn::Get, Ref, Fn::\*) in a JSON string. This is common when creating a AWS CloudWatch Dashboard, a Step Function State Machine, and other places.
 
 - `anyObject` should be any valid TypeScript object.
 
@@ -353,20 +353,14 @@ const serverlessConfiguration: AWS = {
 ### <a name="api-create"></a> `TypedServerless.create(param)`
 
 TODO Document
-```
-  resourceParamsFactory: (id: TId, config: TConfigType) => TResourceParams;
-  onResourceCreated?: (resource: Resource<CfnResourceProps>) => void;
-  onFunctionCreated?: (lambda: ServerlessFunction) => void;
-```
-TODO Document
 
 ### <a name="api-extendWith"></a> `extendWith((typed) => extension)`
 
-TODO Document
+TODO Document / [example](https://github.com/gabrielmoreira/typed-serverless/blob/main/examples/extending/serverless/base.ts)
 
 ### <a name="api-only"></a> `only<OtherIds>(object)`
 
-TODO Document
+TODO Document / [example](https://github.com/gabrielmoreira/typed-serverless/blob/main/examples/minimal/serverless.ts)
 
 
 ## Examples
@@ -417,6 +411,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 [issues-shield]: https://img.shields.io/github/issues/gabrielmoreira/typed-serverless.svg?style=for-the-badge
 [issues-url]: https://github.com/gabrielmoreira/typed-serverless/issues
 [license-shield]: https://img.shields.io/github/license/gabrielmoreira/typed-serverless.svg?style=for-the-badge
-[license-url]: https://github.com/gabrielmoreira/typed-serverless/blob/master/LICENSE.txt
+[license-url]: https://github.com/gabrielmoreira/typed-serverless/blob/master/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/gabriel-moreira
