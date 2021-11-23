@@ -323,7 +323,7 @@ const serverlessConfiguration: AWS = {
 
 ### <a name="api-buildLambdaArn"></a> `buildLambdaArn('<ResourceId>')`
 
-Use this function to be able to make a soft reference to a lambda. It means that instead of creating a CloudFormation reference like `.arn('<ResourceId>')`, we build an ARN string for your resource, be we also validate if this resource was previously defined using `.resources({'<ResourceId>': <ResourceBuilder> })`
+Use this function to be able to make a soft reference to a lambda. It means that instead of creating a CloudFormation reference like `.arn('<ResourceId>')`, we build an ARN string for your resource, and we also validate if this resource was previously defined using `.resources({'<ResourceId>': <ResourceBuilder> })`
 
 The main use case for this is to overcome a limitation in CloudFormation that does not allow a circular reference. It's very common issue when you have a lambda that references an IAM policy that references to the same lambda, creating a circular dependency.
 
