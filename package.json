@@ -1,6 +1,6 @@
 {
   "name": "typed-serverless",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Helps you write a consistent Serverless Framework configuration in TypeScript",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
