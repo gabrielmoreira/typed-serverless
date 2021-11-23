@@ -330,29 +330,18 @@ The main use case for this is to overcome a limitation in CloudFormation that do
 - `ResourceId` should be a valid string literal type defined at `Ids` in `TypedServerless.createDefault<Ids>()`
 
 ```ts
-type Ids = 'MyQueue' | 'SendMessageFn';
+type Ids = 'SendMessageFn';
 const typed = TypedServerless.createDefault<Ids>();
 
 const serverlessConfiguration: AWS = {
   ...
-  resources: {
-    Resources: typed.resources({ 
-      'MyQueue': ({ name }) =>
-        SQS.Queue({ QueueName: name }),
-    }),
-  },
   functions: typed.functions({
     'SendMessageFn': ({ name }) => ({
       name,
       handler: './mylambda.handler',
       events: [{ http: { method: 'get', path: 'send' } }],
       environment: {
-        COMPLEX_JSON_STRING: typed.stringify({ 
-          // typed.stringify will preserve all CloudFormation expressions (.ref, .arn, .getName) below:
-          queueUrl: typed.ref('MyQueue'),
-          queueArn: typed.arn('MyQueue'),
-          queueName: typed.getName('MyQueue'),
-        })
+        MY_LAMBDA_ARN: typed.buildLambdaArn('SendMessageFn'),
       },
     }),
   }),
