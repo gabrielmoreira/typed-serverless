@@ -46,7 +46,7 @@ Serverless Framework is a great framework to create serverless applications, but
 ### Some reasons:
 * Save time. Many errors that would only happen at runtime can be prevented by using TypeScript. For example, a very common mistake is referencing a wrong ARN resource when defining an IAM Policy.
 
-* Autocomplete for almost everything, including all IDs you define for your resources, and also all AWS CloudFormation resources using [Typed AWS](https://github.com/gabrielmoreira/typed-aws).
+* Autocomplete + Type checking for almost everything, including all IDs you define for your resources, and also all AWS CloudFormation resources using [Typed AWS](https://github.com/gabrielmoreira/typed-aws).
 
 * Ensure a consistent style. Avoid hundreds of string interpolations and copy-and-paste by creating helper functions.
 
